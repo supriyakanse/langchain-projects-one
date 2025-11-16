@@ -1,0 +1,41 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+
+# Virtual environment
+venv/
+.env/
+
+# ---- Environment files ----
+.env
+*.env
+
+# ---- FAISS indexes / Vectorstore ----
+*.faiss
+*.npy
+*.npz
+*.pkl
+
+# ---- Editor / System ----
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# ---- Logs ----
+*.log
+
+# ---- Docker ----
+*.pid
+*.log
+docker-data/
+
+# ---- Python packaging ----
+*.egg-info/
+dist/
+build/
+
+# ---- Cache ----
+.cache/
