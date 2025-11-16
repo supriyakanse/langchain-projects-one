@@ -64,19 +64,9 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-    # Always load fresh FAISS index (fixes old-data issue)
-    index, metadata = load_faiss_index()
-
-    if index is None:
-        raise HTTPException(status_code=400, detail="FAISS index not loaded. Run /build-index first.")
-
-    if not req.session_id:
-        raise HTTPException(status_code=400, detail="session_id is required")
-
-    # Pass dynamically loaded index to your answer_query()
     resp = answer_query(req.session_id, req.question, k=req.top_k or 5)
 
-    if not resp.get("success"):
-        raise HTTPException(status_code=500, detail=resp.get("error", "unknown error"))
+    if not resp["success"]:
+        raise HTTPException(status_code=400, detail=resp.get("error"))
 
     return {"answer": resp["answer"], "sources": resp["sources"]}

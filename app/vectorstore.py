@@ -1,64 +1,73 @@
+# app/vectorstore.py
 import os
-import faiss
-from sentence_transformers import SentenceTransformer
 import numpy as np
+from typing import List, Dict
+from langchain_community.vectorstores import FAISS
+from langchain.embeddings import SentenceTransformerEmbeddings
 
-# Store index file
-INDEX_PATH = "email_index.faiss"
-META_PATH = "email_metadata.npy"
+INDEX_DIR = "vectorstore"
+META_PATH = os.path.join(INDEX_DIR, "email_metadata.npy")
 
-# Load model once
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+os.makedirs(INDEX_DIR, exist_ok=True)
 
-
-def encode_text(text: str):
-    """Generate embedding vector for text."""
-    return embedding_model.encode([text])[0]
+embedding_model = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
 
 
-def build_faiss_index(emails: list):
+def build_faiss_index(emails: List[Dict]):
     """
-    Build FAISS vector store from email list.
-    emails = list of {subject, sender, date, body}
+    Builds a LangChain FAISS vectorstore from emails.
     """
+
     if not emails:
         return False
 
-    vectors = []
-    metadata = []
+    texts = []
+    metadatas = []
 
-    for email_data in emails:
-        text = (
-            f"Subject: {email_data['subject']}\n"
-            f"From: {email_data['sender']}\n"
-            f"Date: {email_data['date']}\n\n"
-            f"{email_data['body']}"
+    for email in emails:
+        body_text = (
+            f"Subject: {email['subject']}\n"
+            f"From: {email['sender']}\n"
+            f"Date: {email['date']}\n\n"
+            f"{email['body']}"
         )
 
-        vec = encode_text(text)
-        vectors.append(vec)
-        metadata.append(email_data)
+        texts.append(body_text)
+        metadatas.append({
+            "subject": email["subject"],
+            "sender": email["sender"],
+            "date": email["date"]
+        })
 
-    vectors = np.array(vectors).astype("float32")
+    vectorstore = FAISS.from_texts(
+        texts=texts,
+        embedding=embedding_model,
+        metadatas=metadatas
+    )
 
-    # Create FAISS index
-    dim = vectors.shape[1]
-    index = faiss.IndexFlatL2(dim)
-    index.add(vectors)
-
-    # Save index & metadata
-    faiss.write_index(index, INDEX_PATH)
-    np.save(META_PATH, metadata, allow_pickle=True)
+    vectorstore.save_local(INDEX_DIR)
+    np.save(META_PATH, metadatas, allow_pickle=True)
 
     return True
 
 
 def load_faiss_index():
-    """Load FAISS index + metadata from disk"""
-    if not os.path.exists(INDEX_PATH) or not os.path.exists(META_PATH):
+    """
+    Loads LangChain vectorstore + metadata.
+    """
+
+    if not os.path.exists(INDEX_DIR):
         return None, None
 
-    index = faiss.read_index(INDEX_PATH)
+    if not os.path.exists(META_PATH):
+        return None, None
+
+    vectorstore = FAISS.load_local(
+        INDEX_DIR, 
+        embeddings=embedding_model,
+        allow_dangerous_deserialization=True
+    )
+
     metadata = np.load(META_PATH, allow_pickle=True)
 
-    return index, metadata
+    return vectorstore, metadata
